@@ -1,5 +1,6 @@
 package exdevlab.instantiation.customization;
 
+import exdevlab.instantiation.IncorrectInheritanceException;
 import exdevlab.instantiation.customization.prioritizing.Priority;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,20 +11,21 @@ public class Customizer implements ICancellable {
     public Boolean Visible;
     public List<Class> CancellationList;
 
-    protected Customizer(Class targetType){
+    protected Customizer(Class targetType) throws IncorrectInheritanceException {
         this(targetType, null, 0);
     }
 
-    protected Customizer(Class targetType, int priority){
+    protected Customizer(Class targetType, int priority) throws IncorrectInheritanceException {
         this(targetType, null, priority);
     }
 
-    protected Customizer(Class targetType, List<Class> cancellationCollection){
+    protected Customizer(Class targetType, List<Class> cancellationCollection) throws IncorrectInheritanceException {
         this(targetType, cancellationCollection, 0);
     }
 
-    protected Customizer(Class targetType, List<Class> cancellationCollection, int priority)
-    {
+    protected Customizer(Class targetType, List<Class> cancellationCollection, int priority) throws IncorrectInheritanceException {
+        if (!ICustomizationAttributeDrivenTest.class.isAssignableFrom(targetType))
+            throw new IncorrectInheritanceException(new String[] {targetType.getTypeName()}, new String[]{ICustomizationAttributeDrivenTest.class.getTypeName()});
         if (cancellationCollection == null)
         {
             cancellationCollection = new ArrayList<>();

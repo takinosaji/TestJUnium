@@ -1,42 +1,56 @@
 package exdevlab.instantiation.customization;
 
+import exdevlab.instantiation.IncorrectInheritanceException;
 import exdevlab.instantiation.core.KernelDrivenTest;
+
+import java.awt.image.Kernel;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class CustomizationAnnotationDrivenTest extends KernelDrivenTest implements ICustomizationAttributeDrivenTest
 {
     private List<Class> _invokedAttributes;
     private List<Class> _hiddenAttributes;
 
-    protected CustomizationAttributeDrivenTest()
+    protected CustomizationAnnotationDrivenTest()
     {
         _hiddenAttributes = new ArrayList<>();
         _invokedAttributes = new ArrayList<>();
-        Kernel.Bind<CustomizationAttributeDrivenTest>().ToConstant(this);
+//        Kernel.Bind<CustomizationAttributeDrivenTest>().ToConstant(this);
     }
 
-    public void ApplyCustomization()
-    {
-        var frame = new StackFrame(1);
-        var callingMethod = frame.GetMethod();
-        var targetType = callingMethod.DeclaringType ?? GetType();
-        List<Class> annoList = new List<CustomizationAttribute>(GetType().GetCustomAttributes<CustomizationAttribute>()
-        .Where(a => a.GetType().GetInterfaces().Where(i => i.IsGenericType).Any(i => i.GetGenericTypeDefinition() == typeof(ICustomizationAttribute<>)))
-        .Where(a => a.GetCustomizationTargetType() == targetType || targetType.IsSubclassOf(a.GetCustomizationTargetType())));
-        annoList.sort((o1, o2) -> {
-            Class mineTargetType = o1.GetCustomizationTargetType();
-            Class othersTargetType = o2.GetCustomizationTargetType();
-            if (!typeof(ICustomizationAttributeDrivenTest).IsAssignableFrom(mineTargetType))
-                throw new IncorrectCustomizationTargetTypeException(mineTargetType.Name);
-            if (!typeof(ICustomizationAttributeDrivenTest).IsAssignableFrom(othersTargetType))
-                throw new IncorrectCustomizationTargetTypeException(othersTargetType.Name);
-            if (mineTargetType.IsSubclassOf(othersTargetType)) return 1;
-            if (othersTargetType.IsSubclassOf(mineTargetType)) return -1;
-            return Priority == 0 ? 1 : other.Priority == 0 ? - 1 : Priority - other.Priority;
+    public void ApplyCustomization() throws IllegalAccessException, InstantiationException, IncorrectInheritanceException {
+//        var frame = new StackFrame(1);
+//        var callingMethod = frame.GetMethod();
+//        var targetType = callingMethod.DeclaringType ?? GetType();
+//        List<Class> annoList = new List<CustomizationAttribute>(GetType().GetCustomAttributes<CustomizationAttribute>()
+//        .Where(a => a.GetType().GetInterfaces().Where(i => i.IsGenericType).Any(i => i.GetGenericTypeDefinition() == typeof(ICustomizationAttribute<>)))
+//        .Where(a => a.GetCustomizationTargetType() == targetType || targetType.IsSubclassOf(a.GetCustomizationTargetType())));
+
+
+        Customize[] customizations = getClass().getAnnotationsByType(Customize.class);
+        List<Customizer> customizers = new ArrayList<>();
+        for (Customize customization: customizations) {
+            Class customizer = customization.value();
+            if(Customizer.class.isAssignableFrom(customizer)) {
+                Customizer instance = (Customizer)customizer.newInstance();
+                customizers.add(instance);
+                continue;
+            }
+            throw new IncorrectInheritanceException(new String[] {customizer.getTypeName()}, new String[]{Customizer.class.getTypeName()});
+        }
+        customizers.sort((c1, c2) ->
+        {
+            Class mineTargetType = c1.GetCustomizationTargetType();
+            Class othersTargetType = c2.GetCustomizationTargetType();
+            if (mineTargetType.isAssignableFrom(othersTargetType) && mineTargetType != othersTargetType) return 1;
+            if (othersTargetType.isAssignableFrom(mineTargetType) && mineTargetType != othersTargetType) return -1;
+            return c1.Priority == 0 ? 1 : c2.Priority == 0 ? -1 : c1.Priority - c2.Priority;
         });
 
-        attributeList = ApplyTheOnlyPolicy(attributeList);
+        customizers = ApplyTheOnlyPolicy(customizers);
         attributeList.ForEach(a =>
         {
             if (_invokedAttributes.Any(i => i == a.GetType()) ||
@@ -56,11 +70,13 @@ public class CustomizationAnnotationDrivenTest extends KernelDrivenTest implemen
         });
     }
 
-    public List<Customizer> ApplyTheOnlyPolicy(List<Customizer> customizationAttributes)
+    public List<Customizer> ApplyTheOnlyPolicy(List<Customizer> customizers)
     {
-        var attributeList = customizationAttributes.ToList();
-        var theOnlys = attributeList.Where(attr => attr.GetType().GetCustomAttribute<TheOnlyAttribute>() != null).ToList();
-        var theOnyLasts = theOnlys.GroupBy(t => t).Select(grp => grp.Last()).ToList();
+        List<Customizer> resultCustomizers = new ArrayList<>(customizers.size());
+        Collections.copy(resultCustomizers, customizers);
+        Stream<Customizer> resultCustomizersStream = resultCustomizers.stream();
+        List<Customizer> theOnlys = resultCustomizersStream.filter(customizer -> customizer.getClass().getAnnotation(TheOnly.class) != null);
+        List<Customizer> theOnyLasts = theOnlys.stream().(t => t).Select(grp => grp.Last()).ToList();
         for (var i = attributeList.Count; i >= 0 ; i--)
         {
             var attr = attributeList[i];
