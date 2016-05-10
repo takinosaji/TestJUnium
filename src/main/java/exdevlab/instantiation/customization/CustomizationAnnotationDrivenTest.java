@@ -32,6 +32,7 @@ public class CustomizationAnnotationDrivenTest extends KernelDrivenTest implemen
 
         Customize[] customizations = getClass().getAnnotationsByType(Customize.class);
         List<Customizer> customizers = new ArrayList<>();
+        customizers.forEach();
         for (Customize customization: customizations) {
             Class customizer = customization.value();
             if(Customizer.class.isAssignableFrom(customizer)) {
