@@ -1,4 +1,12 @@
 package exdevlab.instantiation.stepping.steps;
 
-public abstract class WebDriverStep<TResult> extends WebDriverBaseStep {
+
+import org.openqa.selenium.WebDriver;
+
+public abstract class WebDriverStep extends WebDriverBaseStep implements IExecutableStep{
+    protected WebDriverStep(WebDriver driver) {
+        super(driver);
+    }
+    public abstract void Execute();
 }
+
